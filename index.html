@@ -73,7 +73,7 @@
         .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
         .filter-row select { width: auto; flex: 0 0 auto; }
 
-        /* 历史记录卡片样式 */
+        /* 记录卡片 */
         .record-card {
             background: var(--card);
             border-radius: 14px;
@@ -82,21 +82,11 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
         }
         .record-top {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .record-top > div {
-            font-size: 14px;
-            color: #333;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            margin-bottom: 10px; font-size: 14px;
         }
         .record-mid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
             margin-bottom: 10px;
         }
         .record-mid .editable {
@@ -104,108 +94,59 @@
             cursor: pointer;
         }
         .record-bottom {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
             justify-content: space-between;
         }
         .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
+            display: inline-block; padding: 4px 8px; border-radius: 8px;
+            font-size: 12px; font-weight: 600;
         }
         .badge-yellow { background: #FFF3D6; color: var(--yellow); }
         .badge-green { background: #D4F5DD; color: var(--green); }
         .note-text {
-            font-size: 13px;
-            color: #666;
-            white-space: pre-wrap;
-            word-break: break-word;
-            flex: 1 1 100%;
+            font-size: 13px; color: #666; white-space: pre-wrap;
+            word-break: break-word; flex: 1 1 100%;
         }
-        .action-btns {
-            display: flex;
-            gap: 6px;
-        }
+        .action-btns { display: flex; gap: 6px; }
         .action-btns button {
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 500;
-            border: none;
-            cursor: pointer;
-            width: auto;
-            margin: 0;
+            padding: 8px 12px; border-radius: 10px; font-size: 13px;
+            font-weight: 500; border: none; cursor: pointer; width: auto; margin: 0;
         }
         .return-btn { background: rgba(0,122,255,0.1); color: var(--blue); }
         .del-btn { background: rgba(255,59,48,0.1); color: var(--red); }
 
         /* Toast */
         .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            font-size: 15px;
-            z-index: 9999;
-            opacity: 0;
-            transition: opacity 0.3s;
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 12px 24px; border-radius: 14px;
+            font-size: 15px; z-index: 9999; opacity: 0; transition: opacity 0.3s;
             pointer-events: none;
         }
         .toast.show { opacity: 1; }
-        .empty { text-align: center; color: var(--gray4); padding: 30px; }
 
         /* 快速编辑弹窗 */
         .quick-edit-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); display: flex; align-items: center;
+            justify-content: center; z-index: 1000;
         }
         .quick-edit-box {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            width: 280px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: white; border-radius: 16px; padding: 24px;
+            width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         .quick-edit-box input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            background: var(--gray1);
-            border: none;
-            font-size: 16px;
-            margin-bottom: 16px;
+            width: 100%; padding: 12px; border-radius: 12px;
+            background: var(--gray1); border: none; font-size: 16px; margin-bottom: 16px;
         }
-        .quick-edit-box button {
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 16px;
-            width: 100%;
-        }
+        .empty { text-align: center; color: var(--gray4); padding: 30px; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>📋 代加工记账管理</h1>
-
     <div class="toast" id="toast"></div>
 
-    <!-- 快速编辑弹窗（动态创建） -->
-    <div id="quickEditContainer"></div>
-
-    <!-- 新记录表单（保持原样） -->
+    <!-- 新记录表单 -->
     <div class="card">
         <div class="card-title">新发放记录</div>
         <div class="input-row">
@@ -230,6 +171,7 @@
         <button onclick="addRecord()">添加记录</button>
     </div>
 
+    <!-- 利润总览 -->
     <div class="card">
         <div class="profit">
             <span>总利润（按已收回）</span>
@@ -237,6 +179,7 @@
         </div>
     </div>
 
+    <!-- 历史记录 -->
     <div class="card">
         <div class="filter-row">
             <span class="card-title" style="margin-bottom:0;">历史记录</span>
@@ -265,34 +208,41 @@
         setTimeout(() => t.classList.remove('show'), 2000)
     }
 
-    // ---- 快速编辑弹窗（替代 prompt） ----
+    // 快速编辑弹窗（通用）
     function quickEdit(title, currentVal, callback) {
-        const container = document.getElementById('quickEditContainer')
-        container.innerHTML = `
-            <div class="quick-edit-overlay" id="quickOverlay">
-                <div class="quick-edit-box">
-                    <div style="font-weight:600; margin-bottom:12px;">${title}</div>
-                    <input type="number" id="quickInput" value="${currentVal}" step="1">
-                    <div style="display:flex; gap:8px;">
-                        <button onclick="document.getElementById('quickOverlay').remove();" style="background:#E5E5EA; color:#000;">取消</button>
-                        <button id="quickConfirm" style="background:var(--blue); color:#fff;">确定</button>
-                    </div>
+        // 移除已有弹窗
+        const exist = document.querySelector('.quick-edit-overlay')
+        if (exist) exist.remove()
+
+        const overlay = document.createElement('div')
+        overlay.className = 'quick-edit-overlay'
+        overlay.innerHTML = `
+            <div class="quick-edit-box">
+                <div style="font-weight:600; margin-bottom:12px;">${title}</div>
+                <input type="number" id="quickInput" value="${currentVal}" step="1" autofocus>
+                <div style="display:flex; gap:8px;">
+                    <button id="quickCancel" style="background:#E5E5EA; color:#000;">取消</button>
+                    <button id="quickConfirm" style="background:var(--blue); color:#fff;">确定</button>
                 </div>
             </div>
         `
-        document.getElementById('quickInput').focus()
+        document.body.appendChild(overlay)
+
+        const input = document.getElementById('quickInput')
+        input.focus()
+        document.getElementById('quickCancel').onclick = () => overlay.remove()
         document.getElementById('quickConfirm').onclick = () => {
-            const val = document.getElementById('quickInput').value
-            document.getElementById('quickOverlay').remove()
+            const val = input.value
+            overlay.remove()
             if (val === '' || isNaN(val) || Number(val) < 0) {
-                alert('请输入有效数字')
+                alert('请输入有效的数字')
                 return
             }
             callback(Number(val))
         }
     }
 
-    // ---- 添加记录 ----
+    // 添加记录
     async function addRecord() {
         const date = document.getElementById('date').value
         const model = document.getElementById('model').value.trim()
@@ -309,7 +259,7 @@
         try {
             const res = await fetch(BASE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': KEY, 'Authorization': `Bearer ${KEY}` },
+                headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}` },
                 body: JSON.stringify({ date, model: model||null, worker, sent_qty: sentQty, returned_qty: returnedQty, buy_price: buyP, pay_price: payP, other_cost: other, note: note||null })
             })
             if (!res.ok) { const err = await res.json(); throw new Error(err.message) }
@@ -326,7 +276,7 @@
         } catch (err) { alert('添加失败：' + err.message) }
     }
 
-    // ---- 加载数据 ----
+    // 加载数据
     async function loadData() {
         const wf = document.getElementById('workerFilter').value
         const mf = document.getElementById('modelFilter').value
@@ -376,11 +326,29 @@
                     <div class="record-bottom">
                         ${item.note ? `<div class="note-text editable" onclick="editNote('${item.id}', '${escapeHtml(item.note)}')">📝 ${escapeHtml(item.note)}</div>` : ''}
                         <div class="action-btns">
-                            <button class="return-btn" onclick="quickEdit('追加收回', 0, (v)=>addReturn('${item.id}', ${returned}, v))">＋收回</button>
+                            <button class="return-btn" id="return-${item.id}">＋收回</button>
                             <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
                         </div>
                     </div>
                 `
+
+                // 直接绑定收回事件
+                const returnBtn = card.querySelector(`#return-${item.id}`)
+                returnBtn.addEventListener('click', () => {
+                    quickEdit('本次追加收回数量', 0, async (addVal) => {
+                        if (addVal <= 0) {
+                            alert('请输入大于0的数量')
+                            return
+                        }
+                        const newReturned = returned + addVal
+                        try {
+                            await patchRecord(item.id, { returned_qty: newReturned })
+                        } catch (e) {
+                            alert('更新失败：' + e.message)
+                        }
+                    })
+                })
+
                 list.appendChild(card)
             })
 
@@ -395,7 +363,7 @@
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
     }
 
-    // 通用更新
+    // 通用 PATCH
     async function patchRecord(id, body) {
         const res = await fetch(`${BASE}?id=eq.${id}`, {
             method: 'PATCH',
@@ -407,16 +375,7 @@
         loadData()
     }
 
-    // 追加收回（由快速编辑框回调触发）
-    async function addReturn(id, currentReturned, addVal) {
-        if (addVal <= 0) return alert('请输入大于0的数量')
-        const newReturned = currentReturned + addVal
-        try {
-            await patchRecord(id, { returned_qty: newReturned })
-        } catch (e) { alert('更新失败：' + e.message) }
-    }
-
-    // 编辑备注（仍用 prompt 因为文字）
+    // 编辑备注
     async function editNote(id, currentNote) {
         const newNote = prompt('修改备注', currentNote || '')
         if (newNote === null) return
