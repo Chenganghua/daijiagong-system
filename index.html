@@ -1,22 +1,25 @@
-
 <!DOCTYPE html>
 <html lang="zh">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>代加工云管理系统</title>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>代加工管理系统</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+
 body{
-    font-family:Arial;
-    background:#f5f5f5;
+    margin:0;
     padding:20px;
+    background:#f5f5f5;
+    font-family:Arial;
 }
+
 .container{
     max-width:1200px;
     margin:auto;
@@ -24,318 +27,441 @@ body{
     padding:20px;
     border-radius:10px;
 }
-input,button{
-    padding:8px;
-    margin:5px;
+
+h1,h2{
+    margin-top:0;
 }
+
+.card{
+    background:#fafafa;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+input{
+    padding:10px;
+    margin:5px;
+    border:1px solid #ccc;
+    border-radius:5px;
+}
+
+button{
+    padding:10px 15px;
+    border:none;
+    background:#333;
+    color:white;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    opacity:0.8;
+}
+
 table{
     width:100%;
     border-collapse:collapse;
     margin-top:20px;
 }
+
 th,td{
     border:1px solid #ddd;
-    padding:8px;
+    padding:10px;
     text-align:center;
 }
+
 th{
     background:#eee;
 }
-.card{
-    margin-top:20px;
-    background:#fafafa;
-    padding:15px;
-    border-radius:8px;
+
+.stat{
+    font-size:20px;
+    font-weight:bold;
 }
+
 </style>
+
 </head>
+
 <body>
 
 <div class="container">
 
-<h1>代加工云管理系统</h1>
+<h1>代加工管理系统</h1>
 
 <div class="card">
+
 <h2>登录 / 注册</h2>
 
 <input type="email" id="email" placeholder="邮箱">
+
 <input type="password" id="password" placeholder="密码">
 
 <button onclick="register()">注册</button>
+
 <button onclick="login()">登录</button>
+
 <button onclick="logout()">退出</button>
 
 <p id="userInfo">未登录</p>
+
 </div>
 
 <div class="card">
+
 <h2>添加记录</h2>
 
 <input type="date" id="date">
-<input type="text" id="worker" placeholder="做货人">
+
+<input type="text" id="worker" placeholder="工人名字">
+
 <input type="number" id="qty" placeholder="数量">
+
 <input type="number" step="0.01" id="buyPrice" placeholder="接单单价">
+
 <input type="number" step="0.01" id="payPrice" placeholder="工人工价">
+
 <input type="number" step="0.01" id="otherCost" placeholder="其他成本">
 
 <button onclick="addRecord()">添加记录</button>
+
+</div>
+
+<div class="card">
+
+<h2>利润统计</h2>
+
+<p class="stat">
+总利润：¥<span id="totalProfit">0.00</span>
+</p>
+
 </div>
 
 <table>
+
 <thead>
+
 <tr>
+
 <th>日期</th>
-<th>做货人</th>
+
+<th>工人</th>
+
 <th>数量</th>
+
 <th>工人工资</th>
+
 <th>利润</th>
+
 <th>删除</th>
+
 </tr>
+
 </thead>
 
-<tbody id="tableBody"></tbody>
+<tbody id="tableBody">
+
+</tbody>
+
 </table>
-
-<div class="card">
-<h2>每天利润统计</h2>
-
-<table>
-<thead>
-<tr>
-<th>日期</th>
-<th>利润</th>
-</tr>
-</thead>
-
-<tbody id="dailyTable"></tbody>
-</table>
-</div>
-
-<div class="card">
-<h2>总统计</h2>
-
-<p>总利润：¥<span id="totalProfit">0.00</span></p>
-
-</div>
 
 </div>
 
 <script>
 
-    const supabaseUrl = 'https://lewyizyxrwyusggvavyf.supabase.co'
+// ======================
+// Supabase 配置
+// ======================
 
-const supabaseKey = 'sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud'
+const supabaseUrl =
+'https://lewyizyxrwyusggvavyf.supabase.co'
 
-const supabase = window.supabase.createClient(
-  supabaseUrl,
-  supabaseKey
+const supabaseKey =
+'sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud'
+
+const supabase =
+window.supabase.createClient(
+    supabaseUrl,
+    supabaseKey
 )
-// ============================
-// Firebase配置（需要你自己填）
-// ============================
 
-const firebaseConfig = {
-  apiKey: "请填写",
-  authDomain: "请填写",
-  projectId: "请填写",
-  storageBucket: "请填写",
-  messagingSenderId: "请填写",
-  appId: "请填写"
-};
+let currentUser = null
 
-firebase.initializeApp(firebaseConfig);
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-let currentUser = null;
-
-// ============================
+// ======================
 // 注册
-// ============================
+// ======================
 
-function register(){
+async function register(){
 
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+    const email =
+    document.getElementById("email").value
 
-    auth.createUserWithEmailAndPassword(email,password)
-    .then(()=>{
-        alert("注册成功");
+    const password =
+    document.getElementById("password").value
+
+    if(!email || !password){
+
+        alert("请输入邮箱和密码")
+
+        return
+    }
+
+    const { error } =
+    await supabase.auth.signUp({
+
+        email,
+        password
+
     })
-    .catch(err=>{
-        alert(err.message);
-    });
-}
 
-// ============================
-// 登录
-// ============================
+    if(error){
 
-function login(){
-
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    auth.signInWithEmailAndPassword(email,password)
-    .then(()=>{
-        alert("登录成功");
-    })
-    .catch(err=>{
-        alert(err.message);
-    });
-}
-
-// ============================
-// 退出
-// ============================
-
-function logout(){
-    auth.signOut();
-}
-
-// ============================
-// 登录状态监听
-// ============================
-
-auth.onAuthStateChanged(user=>{
-
-    if(user){
-
-        currentUser = user;
-
-        document.getElementById("userInfo").innerText =
-        "当前账号：" + user.email;
-
-        loadData();
+        alert(error.message)
 
     }else{
 
-        currentUser = null;
-
-        document.getElementById("userInfo").innerText =
-        "未登录";
-
-        document.getElementById("tableBody").innerHTML = "";
+        alert("注册成功")
     }
-});
+}
 
-// ============================
+// ======================
+// 登录
+// ======================
+
+async function login(){
+
+    const email =
+    document.getElementById("email").value
+
+    const password =
+    document.getElementById("password").value
+
+    const { error } =
+    await supabase.auth.signInWithPassword({
+
+        email,
+        password
+
+    })
+
+    if(error){
+
+        alert(error.message)
+
+    }else{
+
+        alert("登录成功")
+
+        checkUser()
+    }
+}
+
+// ======================
+// 退出
+// ======================
+
+async function logout(){
+
+    await supabase.auth.signOut()
+
+    location.reload()
+}
+
+// ======================
+// 检查用户
+// ======================
+
+async function checkUser(){
+
+    const {
+
+        data: { user }
+
+    } = await supabase.auth.getUser()
+
+    if(user){
+
+        currentUser = user
+
+        document.getElementById("userInfo")
+        .innerText =
+        "当前用户：" + user.email
+
+        loadData()
+    }
+}
+
+// ======================
 // 添加记录
-// ============================
+// ======================
 
 async function addRecord(){
 
     if(!currentUser){
-        alert("请先登录");
-        return;
+
+        alert("请先登录")
+
+        return
     }
 
-    const data = {
+    const date =
+    document.getElementById("date").value
 
-        uid: currentUser.uid,
+    const worker =
+    document.getElementById("worker").value
 
-        date: document.getElementById("date").value,
+    const qty =
+    Number(
+        document.getElementById("qty").value
+    )
 
-        worker: document.getElementById("worker").value,
+    const buyPrice =
+    Number(
+        document.getElementById("buyPrice").value
+    )
 
-        qty: Number(document.getElementById("qty").value),
+    const payPrice =
+    Number(
+        document.getElementById("payPrice").value
+    )
 
-        buyPrice: Number(document.getElementById("buyPrice").value),
+    const otherCost =
+    Number(
+        document.getElementById("otherCost").value || 0
+    )
 
-        payPrice: Number(document.getElementById("payPrice").value),
+    const { error } =
+    await supabase
+    .from('records')
+    .insert([{
 
-        otherCost: Number(document.getElementById("otherCost").value || 0)
+        user_id: currentUser.id,
 
-    };
+        date: date,
 
-    await db.collection("records").add(data);
+        worker: worker,
 
-    loadData();
+        qty: qty,
+
+        buy_price: buyPrice,
+
+        pay_price: payPrice,
+
+        other_cost: otherCost
+
+    }])
+
+    if(error){
+
+        alert(error.message)
+
+    }else{
+
+        loadData()
+    }
 }
 
-// ============================
-// 加载数据（云端同步）
-// ============================
+// ======================
+// 读取数据
+// ======================
 
 async function loadData(){
 
-    if(!currentUser) return;
+    const { data, error } =
+    await supabase
+    .from('records')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('date', {
 
-    const snapshot = await db.collection("records")
-    .where("uid","==",currentUser.uid)
-    .get();
+        ascending:false
 
-    const table = document.getElementById("tableBody");
-    const dailyTable = document.getElementById("dailyTable");
+    })
 
-    table.innerHTML = "";
-    dailyTable.innerHTML = "";
+    if(error){
 
-    let totalProfit = 0;
+        alert(error.message)
 
-    let dailyStats = {};
-
-    snapshot.forEach(doc=>{
-
-        const r = doc.data();
-
-        const salary = r.qty * r.payPrice;
-
-        const income = r.qty * r.buyPrice;
-
-        const profit = income - salary - r.otherCost;
-
-        totalProfit += profit;
-
-        if(!dailyStats[r.date]){
-            dailyStats[r.date] = 0;
-        }
-
-        dailyStats[r.date] += profit;
-
-        table.innerHTML += `
-        <tr>
-            <td>${r.date}</td>
-            <td>${r.worker}</td>
-            <td>${r.qty}</td>
-            <td>${salary.toFixed(2)}</td>
-            <td>${profit.toFixed(2)}</td>
-            <td>
-                <button onclick="deleteRecord('${doc.id}')">
-                删除
-                </button>
-            </td>
-        </tr>
-        `;
-    });
-
-    for(let day in dailyStats){
-
-        dailyTable.innerHTML += `
-        <tr>
-            <td>${day}</td>
-            <td>${dailyStats[day].toFixed(2)}</td>
-        </tr>
-        `;
+        return
     }
 
-    document.getElementById("totalProfit").innerText =
-    totalProfit.toFixed(2);
+    const table =
+    document.getElementById("tableBody")
+
+    table.innerHTML = ""
+
+    let totalProfit = 0
+
+    data.forEach(record => {
+
+        const salary =
+        record.qty * record.pay_price
+
+        const income =
+        record.qty * record.buy_price
+
+        const profit =
+        income - salary - record.other_cost
+
+        totalProfit += profit
+
+        table.innerHTML += `
+
+        <tr>
+
+        <td>${record.date}</td>
+
+        <td>${record.worker}</td>
+
+        <td>${record.qty}</td>
+
+        <td>¥${salary.toFixed(2)}</td>
+
+        <td>¥${profit.toFixed(2)}</td>
+
+        <td>
+
+        <button onclick="deleteRecord('${record.id}')">
+
+        删除
+
+        </button>
+
+        </td>
+
+        </tr>
+
+        `
+    })
+
+    document.getElementById("totalProfit")
+    .innerText =
+    totalProfit.toFixed(2)
 }
 
-// ============================
+// ======================
 // 删除记录
-// ============================
+// ======================
 
 async function deleteRecord(id){
 
-    await db.collection("records").doc(id).delete();
+    await supabase
+    .from('records')
+    .delete()
+    .eq('id', id)
 
-    loadData();
+    loadData()
 }
+
+// ======================
+// 页面加载自动检查登录
+// ======================
+
+checkUser()
 
 </script>
 
 </body>
+
 </html>
