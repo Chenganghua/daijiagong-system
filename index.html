@@ -34,7 +34,7 @@
         }
         .card-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
         .input-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-        input, select {
+        input, select, textarea {
             flex: 1 1 100px;
             padding: 12px 14px;
             border: none;
@@ -42,8 +42,18 @@
             background: var(--gray1);
             font-size: 15px;
             outline: none;
+            font-family: inherit;
         }
-        input:focus, select:focus { background: #E8E8ED; box-shadow: 0 0 0 2px rgba(0,122,255,0.25); }
+        textarea {
+            flex: 1 1 100%;
+            min-height: 70px;
+            resize: vertical;
+        }
+        input::placeholder, textarea::placeholder { color: var(--gray4); }
+        input:focus, select:focus, textarea:focus {
+            background: #E8E8ED;
+            box-shadow: 0 0 0 2px rgba(0,122,255,0.25);
+        }
         button {
             width: 100%;
             padding: 14px;
@@ -72,6 +82,14 @@
             font-size: 14px;
         }
         .list-item div { flex: 1; text-align: center; }
+        .editable {
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 4px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .editable:hover { color: var(--blue); }
         .del-btn {
             background: rgba(255,59,48,0.1);
             color: var(--red);
@@ -106,6 +124,14 @@
         }
         .badge-yellow { background: #FFF3D6; color: var(--yellow); }
         .badge-green { background: #D4F5DD; color: var(--green); }
+        .note-cell {
+            flex: 2 !important;
+            text-align: left !important;
+            color: #666;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body>
@@ -122,14 +148,17 @@
         </div>
         <div class="input-row">
             <input type="number" id="sentQty" placeholder="发出数量" step="1">
-            <input type="number" id="returnedQty" placeholder="本次收回数量" step="1" value="0">
+            <input type="number" id="returnedQty" placeholder="本次收回数量" step="1">
         </div>
         <div class="input-row">
             <input type="number" id="buyPrice" placeholder="接单单价" step="0.01">
             <input type="number" id="payPrice" placeholder="工人工价" step="0.01">
         </div>
         <div class="input-row">
-            <input type="number" id="otherCost" placeholder="其他成本" step="0.01" value="0">
+            <input type="number" id="otherCost" placeholder="其他成本" step="0.01">
+        </div>
+        <div class="input-row">
+            <textarea id="note" placeholder="备注（材料、颜色、特殊要求等）"></textarea>
         </div>
         <button onclick="addRecord()">添加记录</button>
     </div>
@@ -174,6 +203,7 @@
         const buyP      = Number(document.getElementById('buyPrice').value)
         const payP      = Number(document.getElementById('payPrice').value)
         const other     = Number(document.getElementById('otherCost').value) || 0
+        const note      = document.getElementById('note').value.trim()
 
         if (!date || !worker || !sentQty) return alert('请填写日期、工人和发出数量')
 
@@ -193,7 +223,8 @@
                     returned_qty: returnedQty,
                     buy_price: buyP,
                     pay_price: payP,
-                    other_cost: other
+                    other_cost: other,
+                    note: note || null
                 })
             })
             if (!res.ok) {
@@ -203,10 +234,11 @@
             // 清空表单
             document.getElementById('model').value = ''
             document.getElementById('sentQty').value = ''
-            document.getElementById('returnedQty').value = '0'
+            document.getElementById('returnedQty').value = ''
             document.getElementById('buyPrice').value = ''
             document.getElementById('payPrice').value = ''
-            document.getElementById('otherCost').value = '0'
+            document.getElementById('otherCost').value = ''
+            document.getElementById('note').value = ''
             loadData()
         } catch (err) {
             alert('添加失败：' + err.message)
@@ -217,12 +249,8 @@
         const workerFilter = document.getElementById('workerFilter').value
         const modelFilter  = document.getElementById('modelFilter').value
         let url = `${BASE}?select=*&order=id.desc`
-        if (workerFilter) {
-            url += `&worker=eq.${encodeURIComponent(workerFilter)}`
-        }
-        if (modelFilter) {
-            url += `&model=eq.${encodeURIComponent(modelFilter)}`
-        }
+        if (workerFilter) url += `&worker=eq.${encodeURIComponent(workerFilter)}`
+        if (modelFilter) url += `&model=eq.${encodeURIComponent(modelFilter)}`
 
         const list = document.getElementById('recordList')
         try {
@@ -260,14 +288,15 @@
                     <div><strong>${item.date}</strong></div>
                     <div>${item.model || '-'}</div>
                     <div>${item.worker}</div>
-                    <div>发：${sent}</div>
-                    <div>收：${returned}</div>
+                    <div class="editable" onclick="editSentQty('${item.id}', ${sent})">发：${sent}</div>
+                    <div class="editable" onclick="editReturnedQty('${item.id}', ${returned})">收：${returned}</div>
                     <div style="color:${unpaid>0?'var(--yellow)':'var(--green)'};font-weight:600;">
                         未收：${unpaid}
                         ${unpaid > 0 ? '<span class="badge badge-yellow">进行中</span>' : '<span class="badge badge-green">已收完</span>'}
                     </div>
                     <div>利润：¥${profit.toFixed(2)}</div>
-                    <button class="return-btn" onclick="addReturn('${item.id}', ${returned})">收回</button>
+                    ${item.note ? `<div class="note-cell">📝 ${item.note}</div>` : ''}
+                    <button class="return-btn" onclick="addReturn('${item.id}', ${returned})">+收回</button>
                     <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
                 `
                 list.appendChild(div)
@@ -279,49 +308,52 @@
         }
     }
 
-    // 更新工人和型号筛选下拉框
-    function updateFilters(data) {
-        // 工人筛选
-        const workerSelect = document.getElementById('workerFilter')
-        const currentWorker = workerSelect.value
-        const workers = [...new Set((data || []).map(item => item.worker).filter(Boolean))]
-        workerSelect.innerHTML = '<option value="">所有工人</option>'
-        workers.forEach(w => {
-            workerSelect.innerHTML += `<option value="${w}" ${w === currentWorker ? 'selected' : ''}>${w}</option>`
-        })
-
-        // 型号筛选
-        const modelSelect = document.getElementById('modelFilter')
-        const currentModel = modelSelect.value
-        const models = [...new Set((data || []).map(item => item.model).filter(Boolean))]
-        modelSelect.innerHTML = '<option value="">所有型号</option>'
-        models.forEach(m => {
-            modelSelect.innerHTML += `<option value="${m}" ${m === currentModel ? 'selected' : ''}>${m}</option>`
-        })
+    // 编辑发出数量
+    async function editSentQty(id, currentValue) {
+        const newValue = prompt('修改发出数量', currentValue)
+        if (newValue === null || newValue === '') return
+        const num = Number(newValue)
+        if (isNaN(num) || num < 0) return alert('请输入有效数字')
+        await patchRecord(id, { sent_qty: num })
     }
 
-    // 追加收回数量
+    // 编辑收回数量
+    async function editReturnedQty(id, currentValue) {
+        const newValue = prompt('修改收回数量', currentValue)
+        if (newValue === null || newValue === '') return
+        const num = Number(newValue)
+        if (isNaN(num) || num < 0) return alert('请输入有效数字')
+        await patchRecord(id, { returned_qty: num })
+    }
+
+    // 通用 PATCH 更新
+    async function patchRecord(id, body) {
+        try {
+            const res = await fetch(`${BASE}?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': KEY,
+                    'Authorization': `Bearer ${KEY}`
+                },
+                body: JSON.stringify(body)
+            })
+            if (!res.ok) throw new Error('更新失败')
+            loadData()
+        } catch (err) {
+            alert('修改失败：' + err.message)
+        }
+    }
+
+    // 追加收回（原有快捷按钮）
     async function addReturn(id, currentReturned) {
-        const addQty = prompt('请输入本次收回的数量：', '0')
+        const addQty = prompt('请输入本次追加收回的数量：', '0')
         if (!addQty || isNaN(addQty) || Number(addQty) <= 0) return
         const newReturned = currentReturned + Number(addQty)
-
-        const res = await fetch(`${BASE}?id=eq.${id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': KEY,
-                'Authorization': `Bearer ${KEY}`
-            },
-            body: JSON.stringify({ returned_qty: newReturned })
-        })
-        if (!res.ok) {
-            alert('更新失败')
-            return
-        }
-        loadData()
+        await patchRecord(id, { returned_qty: newReturned })
     }
 
+    // 删除
     async function deleteRecord(id) {
         if (!confirm('确定删除？')) return
         const res = await fetch(`${BASE}?id=eq.${id}`, {
@@ -330,6 +362,25 @@
         })
         if (!res.ok) { alert('删除失败'); return }
         loadData()
+    }
+
+    // 更新筛选下拉框
+    function updateFilters(data) {
+        const workerSelect = document.getElementById('workerFilter')
+        const currentWorker = workerSelect.value
+        const workers = [...new Set((data || []).map(item => item.worker).filter(Boolean))]
+        workerSelect.innerHTML = '<option value="">所有工人</option>'
+        workers.forEach(w => {
+            workerSelect.innerHTML += `<option value="${w}" ${w === currentWorker ? 'selected' : ''}>${w}</option>`
+        })
+
+        const modelSelect = document.getElementById('modelFilter')
+        const currentModel = modelSelect.value
+        const models = [...new Set((data || []).map(item => item.model).filter(Boolean))]
+        modelSelect.innerHTML = '<option value="">所有型号</option>'
+        models.forEach(m => {
+            modelSelect.innerHTML += `<option value="${m}" ${m === currentModel ? 'selected' : ''}>${m}</option>`
+        })
     }
 </script>
 </body>
