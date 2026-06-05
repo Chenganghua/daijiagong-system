@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>代加工记账管理</title>
+    <title>代加工管理</title>
     <style>
         :root {
             --blue: #007AFF;
             --red: #FF3B30;
             --green: #34C759;
+            --yellow: #FF9500;
             --bg: #F2F2F7;
             --card: #FFFFFF;
             --gray1: #F2F2F7;
-            --gray3: #C7C7CC;
             --gray4: #8E8E93;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,7 +23,7 @@
             padding: 20px 16px;
             min-height: 100vh;
         }
-        .container { max-width: 600px; margin: 0 auto; }
+        .container { max-width: 700px; margin: 0 auto; }
         h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 20px; }
         .card {
             background: var(--card);
@@ -34,7 +34,7 @@
         }
         .card-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
         .input-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-        input {
+        input, select {
             flex: 1 1 100px;
             padding: 12px 14px;
             border: none;
@@ -43,7 +43,7 @@
             font-size: 15px;
             outline: none;
         }
-        input:focus { background: #E8E8ED; box-shadow: 0 0 0 2px rgba(0,122,255,0.25); }
+        input:focus, select:focus { background: #E8E8ED; box-shadow: 0 0 0 2px rgba(0,122,255,0.25); }
         button {
             width: 100%;
             padding: 14px;
@@ -83,46 +83,71 @@
             width: auto;
             margin: 0;
         }
-        .empty { text-align: center; color: var(--gray4); padding: 30px; }
-        @media (max-width: 480px) {
-            .list-item { flex-direction: column; align-items: flex-start; }
-            .list-item div { width: 100%; text-align: left; }
+        .return-btn {
+            background: rgba(0,122,255,0.1);
+            color: var(--blue);
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
         }
+        .empty { text-align: center; color: var(--gray4); padding: 30px; }
+        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-yellow { background: #FFF3D6; color: var(--yellow); }
+        .badge-green { background: #D4F5DD; color: var(--green); }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>代加工记账管理</h1>
+    <h1>📋 代加工管理</h1>
 
-    <!-- 添加记录 -->
+    <!-- 新记录表单 -->
     <div class="card">
-        <div class="card-title">新记录</div>
+        <div class="card-title">新发放记录</div>
         <div class="input-row">
             <input type="date" id="date">
             <input type="text" id="worker" placeholder="工人姓名">
         </div>
         <div class="input-row">
-            <input type="number" id="qty" placeholder="数量" step="1">
-            <input type="number" id="buyPrice" placeholder="接单单价" step="0.01">
+            <input type="number" id="sentQty" placeholder="发出数量" step="1">
+            <input type="number" id="returnedQty" placeholder="本次收回数量" step="1" value="0">
         </div>
         <div class="input-row">
+            <input type="number" id="buyPrice" placeholder="接单单价" step="0.01">
             <input type="number" id="payPrice" placeholder="工人工价" step="0.01">
+        </div>
+        <div class="input-row">
             <input type="number" id="otherCost" placeholder="其他成本" step="0.01" value="0">
         </div>
         <button onclick="addRecord()">添加记录</button>
     </div>
 
-    <!-- 利润显示 -->
+    <!-- 利润总览 -->
     <div class="card">
         <div class="profit">
-            <span>总利润</span>
+            <span>总利润（按已收回）</span>
             <span id="totalProfit">¥0</span>
         </div>
     </div>
 
     <!-- 历史记录 -->
     <div class="card">
-        <div class="card-title">历史记录</div>
+        <div class="filter-row">
+            <div class="card-title" style="margin-bottom:0;">历史记录</div>
+            <select id="workerFilter" onchange="loadData()">
+                <option value="">所有工人</option>
+            </select>
+        </div>
         <div id="recordList">
             <div class="empty">暂无记录</div>
         </div>
@@ -130,113 +155,155 @@
 </div>
 
 <script>
-    // ==================== 配置 ====================
     const BASE = "https://lewyizyxrwyusggvavyf.supabase.co/rest/v1/records"
     const KEY  = "sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud"
 
-    // 页面加载时获取数据
     loadData()
 
-    // ==================== 增 ====================
     async function addRecord() {
-        const date   = document.getElementById('date').value
-        const worker = document.getElementById('worker').value.trim()
-        const qty    = Number(document.getElementById('qty').value)
-        const buyP   = Number(document.getElementById('buyPrice').value)
-        const payP   = Number(document.getElementById('payPrice').value)
-        const other  = Number(document.getElementById('otherCost').value) || 0
+        const date      = document.getElementById('date').value
+        const worker    = document.getElementById('worker').value.trim()
+        const sentQty   = Number(document.getElementById('sentQty').value)
+        const returnedQty = Number(document.getElementById('returnedQty').value) || 0
+        const buyP      = Number(document.getElementById('buyPrice').value)
+        const payP      = Number(document.getElementById('payPrice').value)
+        const other     = Number(document.getElementById('otherCost').value) || 0
 
-        if (!date || !worker || !qty) return alert('请填写日期、工人和数量')
+        if (!date || !worker || !sentQty) return alert('请填写日期、工人和发出数量')
 
-        const res = await fetch(BASE, {
-            method: 'POST',
+        try {
+            const res = await fetch(BASE, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': KEY,
+                    'Authorization': `Bearer ${KEY}`
+                },
+                body: JSON.stringify({
+                    date,
+                    worker,
+                    sent_qty: sentQty,
+                    returned_qty: returnedQty,
+                    buy_price: buyP,
+                    pay_price: payP,
+                    other_cost: other
+                })
+            })
+            if (!res.ok) {
+                const err = await res.json()
+                throw new Error(err.message)
+            }
+            // 清空表单
+            document.getElementById('sentQty').value = ''
+            document.getElementById('returnedQty').value = '0'
+            document.getElementById('buyPrice').value = ''
+            document.getElementById('payPrice').value = ''
+            document.getElementById('otherCost').value = '0'
+            loadData()
+        } catch (err) {
+            alert('添加失败：' + err.message)
+        }
+    }
+
+    async function loadData() {
+        const workerFilter = document.getElementById('workerFilter').value
+        let url = `${BASE}?select=*&order=id.desc`
+        if (workerFilter) {
+            url += `&worker=eq.${encodeURIComponent(workerFilter)}`
+        }
+
+        const list = document.getElementById('recordList')
+        try {
+            const res = await fetch(url, {
+                headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` }
+            })
+            if (!res.ok) {
+                list.innerHTML = '<div class="empty">加载失败</div>'
+                return
+            }
+            const data = await res.json()
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div class="empty">暂无记录</div>'
+                document.getElementById('totalProfit').innerText = '¥0'
+                updateWorkerFilter(data)
+                return
+            }
+
+            let total = 0
+            list.innerHTML = ''
+            const workerSet = new Set()
+            data.forEach(item => {
+                workerSet.add(item.worker)
+                const sent = Number(item.sent_qty) || 0
+                const returned = Number(item.returned_qty) || 0
+                const unpaid = sent - returned
+                const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0)
+                total += profit
+
+                const div = document.createElement('div')
+                div.className = 'list-item'
+                div.innerHTML = `
+                    <div><strong>${item.date}</strong></div>
+                    <div>${item.worker}</div>
+                    <div>发：${sent}</div>
+                    <div>收：${returned}</div>
+                    <div style="color:${unpaid>0?'var(--yellow)':'var(--green)'};font-weight:600;">
+                        未收：${unpaid}
+                        ${unpaid > 0 ? '<span class="badge badge-yellow">进行中</span>' : '<span class="badge badge-green">已收完</span>'}
+                    </div>
+                    <div>利润：¥${profit.toFixed(2)}</div>
+                    <button class="return-btn" onclick="addReturn('${item.id}', ${returned})">收回</button>
+                    <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
+                `
+                list.appendChild(div)
+            })
+            document.getElementById('totalProfit').innerText = '¥' + total.toFixed(2)
+            updateWorkerFilter(data)
+        } catch (err) {
+            list.innerHTML = '<div class="empty">网络错误，请检查连接</div>'
+        }
+    }
+
+    // 更新工人筛选下拉框
+    function updateWorkerFilter(data) {
+        const select = document.getElementById('workerFilter')
+        const currentValue = select.value
+        const workers = [...new Set((data || []).map(item => item.worker).filter(Boolean))]
+        select.innerHTML = '<option value="">所有工人</option>'
+        workers.forEach(w => {
+            select.innerHTML += `<option value="${w}" ${w === currentValue ? 'selected' : ''}>${w}</option>`
+        })
+    }
+
+    // 追加收回数量
+    async function addReturn(id, currentReturned) {
+        const addQty = prompt('请输入本次收回的数量：', '0')
+        if (!addQty || isNaN(addQty) || Number(addQty) <= 0) return
+        const newReturned = currentReturned + Number(addQty)
+
+        const res = await fetch(`${BASE}?id=eq.${id}`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'apikey': KEY,
                 'Authorization': `Bearer ${KEY}`
             },
-            body: JSON.stringify({
-                date,
-                worker,
-                qty,
-                buy_price: buyP,
-                pay_price: payP,
-                other_cost: other
-            })
+            body: JSON.stringify({ returned_qty: newReturned })
         })
-
         if (!res.ok) {
-            const err = await res.json()
-            return alert('添加失败：' + err.message)
+            alert('更新失败')
+            return
         }
-
-        // 清空部分输入
-        document.getElementById('qty').value = ''
-        document.getElementById('buyPrice').value = ''
-        document.getElementById('payPrice').value = ''
-        document.getElementById('otherCost').value = '0'
         loadData()
     }
 
-    // ==================== 查 ====================
-    async function loadData() {
-        const res = await fetch(`${BASE}?select=*&order=id.desc`, {
-            headers: {
-                'apikey': KEY,
-                'Authorization': `Bearer ${KEY}`
-            }
-        })
-
-        const list = document.getElementById('recordList')
-        if (!res.ok) {
-            list.innerHTML = '<div class="empty">加载失败</div>'
-            return
-        }
-
-        const data = await res.json()
-        if (!data || data.length === 0) {
-            list.innerHTML = '<div class="empty">暂无记录</div>'
-            document.getElementById('totalProfit').innerText = '¥0'
-            return
-        }
-
-        let total = 0
-        list.innerHTML = ''
-        data.forEach(item => {
-            const salary = item.qty * item.pay_price
-            const income = item.qty * item.buy_price
-            const profit = income - salary - (item.other_cost || 0)
-            total += profit
-
-            const div = document.createElement('div')
-            div.className = 'list-item'
-            div.innerHTML = `
-                <div><strong>${item.date}</strong></div>
-                <div>${item.worker}</div>
-                <div>${item.qty} 件</div>
-                <div>¥${salary.toFixed(2)}</div>
-                <div style="color:${profit>=0?'var(--green)':'var(--red)'}">¥${profit.toFixed(2)}</div>
-                <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
-            `
-            list.appendChild(div)
-        })
-
-        document.getElementById('totalProfit').innerText = '¥' + total.toFixed(2)
-    }
-
-    // ==================== 删 ====================
     async function deleteRecord(id) {
         if (!confirm('确定删除？')) return
-
         const res = await fetch(`${BASE}?id=eq.${id}`, {
             method: 'DELETE',
-            headers: {
-                'apikey': KEY,
-                'Authorization': `Bearer ${KEY}`
-            }
+            headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` }
         })
-
-        if (!res.ok) return alert('删除失败')
+        if (!res.ok) { alert('删除失败'); return }
         loadData()
     }
 </script>
