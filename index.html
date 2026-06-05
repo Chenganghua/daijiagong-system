@@ -120,6 +120,7 @@ async function addRecord(){
         return
     }
 
+    // ✅ 修复点：在 insert 后添加 .select('*')，避免旧的 columns 参数导致 400 错误
     const { error } = await client
         .from('records')
         .insert([{
@@ -130,6 +131,7 @@ async function addRecord(){
             pay_price: payPrice,
             other_cost: otherCost
         }])
+        .select('*')   // 告诉服务器返回所有列，同时生成正确的 ?select=* 参数
 
     if(error){
         alert("插入失败：" + error.message)
