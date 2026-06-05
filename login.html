@@ -73,7 +73,7 @@ const supabaseUrl =
 const supabaseKey =
 'sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud'
 
-const supabase =
+const client =
 window.supabase.createClient(
     supabaseUrl,
     supabaseKey
@@ -90,7 +90,7 @@ async function register(){
     document.getElementById("password").value
 
     const { error } =
-    await supabase.auth.signUp({
+    await client.auth.signUp({
 
         email,
         password
@@ -118,7 +118,7 @@ async function login(){
     document.getElementById("password").value
 
     const { error } =
-    await supabase.auth.signInWithPassword({
+    await client.auth.signInWithPassword({
 
         email,
         password
