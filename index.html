@@ -95,7 +95,8 @@
             margin: 0;
         }
         .empty { text-align: center; color: var(--gray4); padding: 30px; }
-        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .filter-row select { width: auto; flex: 0 0 auto; }
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -116,6 +117,7 @@
         <div class="card-title">新发放记录</div>
         <div class="input-row">
             <input type="date" id="date">
+            <input type="text" id="model" placeholder="型号">
             <input type="text" id="worker" placeholder="工人姓名">
         </div>
         <div class="input-row">
@@ -147,6 +149,9 @@
             <select id="workerFilter" onchange="loadData()">
                 <option value="">所有工人</option>
             </select>
+            <select id="modelFilter" onchange="loadData()">
+                <option value="">所有型号</option>
+            </select>
         </div>
         <div id="recordList">
             <div class="empty">暂无记录</div>
@@ -162,6 +167,7 @@
 
     async function addRecord() {
         const date      = document.getElementById('date').value
+        const model     = document.getElementById('model').value.trim()
         const worker    = document.getElementById('worker').value.trim()
         const sentQty   = Number(document.getElementById('sentQty').value)
         const returnedQty = Number(document.getElementById('returnedQty').value) || 0
@@ -181,6 +187,7 @@
                 },
                 body: JSON.stringify({
                     date,
+                    model: model || null,
                     worker,
                     sent_qty: sentQty,
                     returned_qty: returnedQty,
@@ -194,6 +201,7 @@
                 throw new Error(err.message)
             }
             // 清空表单
+            document.getElementById('model').value = ''
             document.getElementById('sentQty').value = ''
             document.getElementById('returnedQty').value = '0'
             document.getElementById('buyPrice').value = ''
@@ -207,9 +215,13 @@
 
     async function loadData() {
         const workerFilter = document.getElementById('workerFilter').value
+        const modelFilter  = document.getElementById('modelFilter').value
         let url = `${BASE}?select=*&order=id.desc`
         if (workerFilter) {
             url += `&worker=eq.${encodeURIComponent(workerFilter)}`
+        }
+        if (modelFilter) {
+            url += `&model=eq.${encodeURIComponent(modelFilter)}`
         }
 
         const list = document.getElementById('recordList')
@@ -225,15 +237,17 @@
             if (!data || data.length === 0) {
                 list.innerHTML = '<div class="empty">暂无记录</div>'
                 document.getElementById('totalProfit').innerText = '¥0'
-                updateWorkerFilter(data)
+                updateFilters(data)
                 return
             }
 
             let total = 0
             list.innerHTML = ''
             const workerSet = new Set()
+            const modelSet = new Set()
             data.forEach(item => {
-                workerSet.add(item.worker)
+                if (item.worker) workerSet.add(item.worker)
+                if (item.model) modelSet.add(item.model)
                 const sent = Number(item.sent_qty) || 0
                 const returned = Number(item.returned_qty) || 0
                 const unpaid = sent - returned
@@ -244,6 +258,7 @@
                 div.className = 'list-item'
                 div.innerHTML = `
                     <div><strong>${item.date}</strong></div>
+                    <div>${item.model || '-'}</div>
                     <div>${item.worker}</div>
                     <div>发：${sent}</div>
                     <div>收：${returned}</div>
@@ -258,20 +273,30 @@
                 list.appendChild(div)
             })
             document.getElementById('totalProfit').innerText = '¥' + total.toFixed(2)
-            updateWorkerFilter(data)
+            updateFilters(data)
         } catch (err) {
             list.innerHTML = '<div class="empty">网络错误，请检查连接</div>'
         }
     }
 
-    // 更新工人筛选下拉框
-    function updateWorkerFilter(data) {
-        const select = document.getElementById('workerFilter')
-        const currentValue = select.value
+    // 更新工人和型号筛选下拉框
+    function updateFilters(data) {
+        // 工人筛选
+        const workerSelect = document.getElementById('workerFilter')
+        const currentWorker = workerSelect.value
         const workers = [...new Set((data || []).map(item => item.worker).filter(Boolean))]
-        select.innerHTML = '<option value="">所有工人</option>'
+        workerSelect.innerHTML = '<option value="">所有工人</option>'
         workers.forEach(w => {
-            select.innerHTML += `<option value="${w}" ${w === currentValue ? 'selected' : ''}>${w}</option>`
+            workerSelect.innerHTML += `<option value="${w}" ${w === currentWorker ? 'selected' : ''}>${w}</option>`
+        })
+
+        // 型号筛选
+        const modelSelect = document.getElementById('modelFilter')
+        const currentModel = modelSelect.value
+        const models = [...new Set((data || []).map(item => item.model).filter(Boolean))]
+        modelSelect.innerHTML = '<option value="">所有型号</option>'
+        models.forEach(m => {
+            modelSelect.innerHTML += `<option value="${m}" ${m === currentModel ? 'selected' : ''}>${m}</option>`
         })
     }
 
