@@ -105,7 +105,7 @@ const client = window.supabase.createClient(url, key)
 
 loadData()
 
-// 添加记录
+// 添加记录 - 改用 fetch 避免客户端自动添加错误的 columns 参数
 async function addRecord(){
 
     const date = document.getElementById("date").value
@@ -120,25 +120,37 @@ async function addRecord(){
         return
     }
 
-    // ✅ 修复点：在 insert 后添加 .select('*')，避免旧的 columns 参数导致 400 错误
-    const { error } = await client
-        .from('records')
-        .insert([{
-            date: date,
-            worker: worker,
-            qty: qty,
-            buy_price: buyPrice,
-            pay_price: payPrice,
-            other_cost: otherCost
-        }])
-        .select('*')   // 告诉服务器返回所有列，同时生成正确的 ?select=* 参数
+    // 直接用 fetch 请求 Supabase REST API
+    try {
+        const response = await fetch(`${url}/rest/v1/records`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': key,
+                'Authorization': `Bearer ${key}`,
+                'Prefer': 'return=representation' // 要求服务器返回插入后的完整记录
+            },
+            body: JSON.stringify({
+                date: date,
+                worker: worker,
+                qty: qty,
+                buy_price: buyPrice,
+                pay_price: payPrice,
+                other_cost: otherCost
+            })
+        })
 
-    if(error){
-        alert("插入失败：" + error.message)
-        return
+        if (!response.ok) {
+            const err = await response.json()
+            throw new Error(err.message || '插入失败')
+        }
+
+        // 插入成功，重新加载列表
+        loadData()
+
+    } catch (err) {
+        alert("插入失败：" + err.message)
     }
-
-    loadData()
 }
 
 // 读取数据
