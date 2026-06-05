@@ -132,11 +132,31 @@
             white-space: pre-wrap;
             word-break: break-word;
         }
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 14px;
+            font-size: 15px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>代加工记账管理</h1>
+    <h1>📋 代加工记账管理</h1>
+
+    <!-- Toast 提示 -->
+    <div class="toast" id="toast"></div>
 
     <!-- 新记录表单 -->
     <div class="card">
@@ -174,7 +194,7 @@
     <!-- 历史记录 -->
     <div class="card">
         <div class="filter-row">
-            <div class="card-title" style="margin-bottom:0;">历史记录</div>
+            <span class="card-title" style="margin-bottom:0;">历史记录</span>
             <select id="workerFilter" onchange="loadData()">
                 <option value="">所有工人</option>
             </select>
@@ -192,7 +212,18 @@
     const BASE = "https://lewyizyxrwyusggvavyf.supabase.co/rest/v1/records"
     const KEY  = "sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud"
 
+    // 自动填充今天日期
+    document.getElementById('date').value = new Date().toISOString().split('T')[0]
+
     loadData()
+
+    // Toast 提示
+    function showToast(msg) {
+        const toast = document.getElementById('toast')
+        toast.textContent = msg
+        toast.classList.add('show')
+        setTimeout(() => toast.classList.remove('show'), 2000)
+    }
 
     async function addRecord() {
         const date      = document.getElementById('date').value
@@ -231,14 +262,16 @@
                 const err = await res.json()
                 throw new Error(err.message)
             }
-            // 清空表单
+            // 清空表单（保留日期）
             document.getElementById('model').value = ''
+            document.getElementById('worker').value = ''
             document.getElementById('sentQty').value = ''
             document.getElementById('returnedQty').value = ''
             document.getElementById('buyPrice').value = ''
             document.getElementById('payPrice').value = ''
             document.getElementById('otherCost').value = ''
             document.getElementById('note').value = ''
+            showToast('✅ 记录添加成功')
             loadData()
         } catch (err) {
             alert('添加失败：' + err.message)
@@ -282,6 +315,8 @@
                 const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0)
                 total += profit
 
+                const profitColor = profit >= 0 ? 'var(--green)' : 'var(--red)'
+
                 const div = document.createElement('div')
                 div.className = 'list-item'
                 div.innerHTML = `
@@ -294,18 +329,33 @@
                         未收：${unpaid}
                         ${unpaid > 0 ? '<span class="badge badge-yellow">进行中</span>' : '<span class="badge badge-green">已收完</span>'}
                     </div>
-                    <div>利润：¥${profit.toFixed(2)}</div>
-                    ${item.note ? `<div class="note-cell">📝 ${item.note}</div>` : ''}
+                    <div style="color:${profitColor};font-weight:600;">利润：¥${profit.toFixed(2)}</div>
+                    ${item.note ? `<div class="note-cell editable" onclick="editNote('${item.id}', '${escapeHtml(item.note)}')">📝 ${escapeHtml(item.note)}</div>` : ''}
                     <button class="return-btn" onclick="addReturn('${item.id}', ${returned})">+收回</button>
                     <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
                 `
                 list.appendChild(div)
             })
-            document.getElementById('totalProfit').innerText = '¥' + total.toFixed(2)
+
+            // 总利润颜色
+            const totalEl = document.getElementById('totalProfit')
+            totalEl.innerText = '¥' + total.toFixed(2)
+            totalEl.style.color = total >= 0 ? 'var(--green)' : 'var(--red)'
+
             updateFilters(data)
         } catch (err) {
             list.innerHTML = '<div class="empty">网络错误，请检查连接</div>'
         }
+    }
+
+    // HTML 转义，防止 XSS
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
     }
 
     // 编辑发出数量
@@ -326,6 +376,13 @@
         await patchRecord(id, { returned_qty: num })
     }
 
+    // 编辑备注
+    async function editNote(id, currentNote) {
+        const newNote = prompt('修改备注', currentNote)
+        if (newNote === null) return
+        await patchRecord(id, { note: newNote.trim() || null })
+    }
+
     // 通用 PATCH 更新
     async function patchRecord(id, body) {
         try {
@@ -339,13 +396,14 @@
                 body: JSON.stringify(body)
             })
             if (!res.ok) throw new Error('更新失败')
+            showToast('✅ 修改已保存')
             loadData()
         } catch (err) {
             alert('修改失败：' + err.message)
         }
     }
 
-    // 追加收回（原有快捷按钮）
+    // 追加收回
     async function addReturn(id, currentReturned) {
         const addQty = prompt('请输入本次追加收回的数量：', '0')
         if (!addQty || isNaN(addQty) || Number(addQty) <= 0) return
@@ -355,13 +413,18 @@
 
     // 删除
     async function deleteRecord(id) {
-        if (!confirm('确定删除？')) return
-        const res = await fetch(`${BASE}?id=eq.${id}`, {
-            method: 'DELETE',
-            headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` }
-        })
-        if (!res.ok) { alert('删除失败'); return }
-        loadData()
+        if (!confirm('确定删除这条记录吗？此操作不可恢复。')) return
+        try {
+            const res = await fetch(`${BASE}?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` }
+            })
+            if (!res.ok) throw new Error('删除失败')
+            showToast('🗑️ 记录已删除')
+            loadData()
+        } catch (err) {
+            alert('删除失败：' + err.message)
+        }
     }
 
     // 更新筛选下拉框
