@@ -1,6 +1,7 @@
 
 <!DOCTYPE html>
 <html lang="zh">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -121,6 +122,14 @@ th{
 
 <script>
 
+    const supabaseUrl = 'https://lewyizyxrwyusggvavyf.supabase.co'
+
+const supabaseKey = 'sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud'
+
+const supabase = window.supabase.createClient(
+  supabaseUrl,
+  supabaseKey
+)
 // ============================
 // Firebase配置（需要你自己填）
 // ============================
