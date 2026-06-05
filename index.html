@@ -25,6 +25,27 @@
         }
         .container { max-width: 700px; margin: 0 auto; }
         h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 20px; }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            display: flex; gap: 10px; align-items: center; justify-content: center;
+            margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .toolbar select, .toolbar button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 12px;
+            background: var(--card);
+            font-size: 15px;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            cursor: pointer;
+        }
+        .toolbar button {
+            background: var(--blue);
+            color: white;
+        }
+
         .card {
             background: var(--card);
             border-radius: 16px;
@@ -70,10 +91,7 @@
         .profit { display: flex; justify-content: space-between; align-items: baseline; }
         .profit span:first-child { font-size: 17px; font-weight: 500; }
         .profit span:last-child { font-size: 32px; font-weight: 700; color: var(--green); }
-        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .filter-row select { width: auto; flex: 0 0 auto; }
 
-        /* 记录卡片 */
         .record-card {
             background: var(--card);
             border-radius: 14px;
@@ -124,20 +142,25 @@
         }
         .toast.show { opacity: 1; }
 
-        /* 快速编辑弹窗 */
-        .quick-edit-overlay {
+        /* 数据看板弹窗 */
+        .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.4); display: flex; align-items: center;
-            justify-content: center; z-index: 1000;
+            justify-content: center; z-index: 2000;
         }
-        .quick-edit-box {
-            background: white; border-radius: 16px; padding: 24px;
-            width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        .modal-box {
+            background: white; border-radius: 20px; padding: 24px;
+            width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        .quick-edit-box input {
-            width: 100%; padding: 12px; border-radius: 12px;
-            background: var(--gray1); border: none; font-size: 16px; margin-bottom: 16px;
+        .modal-box h3 { font-size: 20px; margin-bottom: 16px; text-align: center; }
+        .stat-row {
+            display: flex; justify-content: space-between; padding: 12px 0;
+            border-bottom: 1px solid #eee; font-size: 15px;
         }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-value { font-weight: 600; }
+
         .empty { text-align: center; color: var(--gray4); padding: 30px; }
     </style>
 </head>
@@ -145,6 +168,14 @@
 <div class="container">
     <h1>📋 代加工记账管理</h1>
     <div class="toast" id="toast"></div>
+
+    <!-- 月份选择 + 看板按钮 -->
+    <div class="toolbar">
+        <select id="monthFilter" onchange="loadData()">
+            <option value="">所有月份</option>
+        </select>
+        <button onclick="openDashboard()" style="width:auto; margin:0;">📊 数据看板</button>
+    </div>
 
     <!-- 新记录表单 -->
     <div class="card">
@@ -171,22 +202,22 @@
         <button onclick="addRecord()">添加记录</button>
     </div>
 
-    <!-- 利润总览 -->
+    <!-- 利润总览（当前月份） -->
     <div class="card">
         <div class="profit">
-            <span>总利润（按已收回）</span>
+            <span>总利润（当前筛选范围）</span>
             <span id="totalProfit">¥0</span>
         </div>
     </div>
 
     <!-- 历史记录 -->
     <div class="card">
-        <div class="filter-row">
+        <div class="filter-row" style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
             <span class="card-title" style="margin-bottom:0;">历史记录</span>
-            <select id="workerFilter" onchange="loadData()">
+            <select id="workerFilter" onchange="loadData()" style="flex:0 0 auto;">
                 <option value="">所有工人</option>
             </select>
-            <select id="modelFilter" onchange="loadData()">
+            <select id="modelFilter" onchange="loadData()" style="flex:0 0 auto;">
                 <option value="">所有型号</option>
             </select>
         </div>
@@ -198,24 +229,40 @@
     const BASE = "https://lewyizyxrwyusggvavyf.supabase.co/rest/v1/records"
     const KEY  = "sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud"
 
-    document.getElementById('date').value = new Date().toISOString().split('T')[0]
-    loadData()
+    // 初始化月份选择器
+    (function initMonthFilter() {
+        const select = document.getElementById('monthFilter');
+        const now = new Date();
+        for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
+            for (let m = 12; m >= 1; m--) {
+                const value = `${y}-${String(m).padStart(2,'0')}`;
+                const text = `${y}年${m}月`;
+                const option = new Option(text, value);
+                select.appendChild(option);
+                if (value === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`) {
+                    option.selected = true;
+                }
+            }
+        }
+    })();
+
+    // 自动填今天日期
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    loadData();
 
     function showToast(msg) {
-        const t = document.getElementById('toast')
-        t.textContent = msg
-        t.classList.add('show')
-        setTimeout(() => t.classList.remove('show'), 2000)
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
     }
 
-    // 快速编辑弹窗（通用）
+    // 快速编辑弹窗（发/收数量）
     function quickEdit(title, currentVal, callback) {
-        // 移除已有弹窗
-        const exist = document.querySelector('.quick-edit-overlay')
-        if (exist) exist.remove()
-
-        const overlay = document.createElement('div')
-        overlay.className = 'quick-edit-overlay'
+        const exist = document.querySelector('.quick-edit-overlay');
+        if (exist) exist.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'quick-edit-overlay';
         overlay.innerHTML = `
             <div class="quick-edit-box">
                 <div style="font-weight:600; margin-bottom:12px;">${title}</div>
@@ -225,89 +272,99 @@
                     <button id="quickConfirm" style="background:var(--blue); color:#fff;">确定</button>
                 </div>
             </div>
-        `
-        document.body.appendChild(overlay)
-
-        const input = document.getElementById('quickInput')
-        input.focus()
-        document.getElementById('quickCancel').onclick = () => overlay.remove()
+        `;
+        document.body.appendChild(overlay);
+        document.getElementById('quickInput').focus();
+        document.getElementById('quickCancel').onclick = () => overlay.remove();
         document.getElementById('quickConfirm').onclick = () => {
-            const val = input.value
-            overlay.remove()
-            if (val === '' || isNaN(val) || Number(val) < 0) {
-                alert('请输入有效的数字')
-                return
-            }
-            callback(Number(val))
-        }
+            const val = document.getElementById('quickInput').value;
+            overlay.remove();
+            if (val === '' || isNaN(val) || Number(val) < 0) { alert('请输入有效数字'); return; }
+            callback(Number(val));
+        };
     }
 
-    // 添加记录
-    async function addRecord() {
-        const date = document.getElementById('date').value
-        const model = document.getElementById('model').value.trim()
-        const worker = document.getElementById('worker').value.trim()
-        const sentQty = Number(document.getElementById('sentQty').value)
-        const returnedQty = Number(document.getElementById('returnedQty').value) || 0
-        const buyP = Number(document.getElementById('buyPrice').value)
-        const payP = Number(document.getElementById('payPrice').value)
-        const other = Number(document.getElementById('otherCost').value) || 0
-        const note = document.getElementById('note').value.trim()
+    // 获取当前选中的月份范围
+    function getMonthRange() {
+        const monthVal = document.getElementById('monthFilter').value;
+        if (!monthVal) return null; // 所有月份
+        const [y, m] = monthVal.split('-').map(Number);
+        const start = `${y}-${String(m).padStart(2,'0')}-01`;
+        const endDate = new Date(y, m, 0); // 下个月第0天即本月最后一天
+        const end = `${y}-${String(m).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+        return { start, end };
+    }
 
-        if (!date || !worker || !sentQty) return alert('请填写日期、工人和发出数量')
+    async function addRecord() {
+        const date = document.getElementById('date').value;
+        const model = document.getElementById('model').value.trim();
+        const worker = document.getElementById('worker').value.trim();
+        const sentQty = Number(document.getElementById('sentQty').value);
+        const returnedQty = Number(document.getElementById('returnedQty').value) || 0;
+        const buyP = Number(document.getElementById('buyPrice').value);
+        const payP = Number(document.getElementById('payPrice').value);
+        const other = Number(document.getElementById('otherCost').value) || 0;
+        const note = document.getElementById('note').value.trim();
+
+        if (!date || !worker || !sentQty) return alert('请填写日期、工人和发出数量');
 
         try {
             const res = await fetch(BASE, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}` },
                 body: JSON.stringify({ date, model: model||null, worker, sent_qty: sentQty, returned_qty: returnedQty, buy_price: buyP, pay_price: payP, other_cost: other, note: note||null })
-            })
-            if (!res.ok) { const err = await res.json(); throw new Error(err.message) }
-            document.getElementById('model').value = ''
-            document.getElementById('worker').value = ''
-            document.getElementById('sentQty').value = ''
-            document.getElementById('returnedQty').value = ''
-            document.getElementById('buyPrice').value = ''
-            document.getElementById('payPrice').value = ''
-            document.getElementById('otherCost').value = ''
-            document.getElementById('note').value = ''
-            showToast('✅ 记录添加成功')
-            loadData()
-        } catch (err) { alert('添加失败：' + err.message) }
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            document.getElementById('model').value = '';
+            document.getElementById('worker').value = '';
+            document.getElementById('sentQty').value = '';
+            document.getElementById('returnedQty').value = '';
+            document.getElementById('buyPrice').value = '';
+            document.getElementById('payPrice').value = '';
+            document.getElementById('otherCost').value = '';
+            document.getElementById('note').value = '';
+            showToast('✅ 记录添加成功');
+            loadData();
+        } catch (err) { alert('添加失败：' + err.message); }
     }
 
-    // 加载数据
     async function loadData() {
-        const wf = document.getElementById('workerFilter').value
-        const mf = document.getElementById('modelFilter').value
-        let url = `${BASE}?select=*&order=id.desc`
-        if (wf) url += `&worker=eq.${encodeURIComponent(wf)}`
-        if (mf) url += `&model=eq.${encodeURIComponent(mf)}`
+        const wf = document.getElementById('workerFilter').value;
+        const mf = document.getElementById('modelFilter').value;
+        const monthRange = getMonthRange();
+        let url = `${BASE}?select=*&order=id.desc`;
 
-        const list = document.getElementById('recordList')
+        // 日期过滤
+        if (monthRange) {
+            url += `&date=gte.${monthRange.start}&date=lte.${monthRange.end}`;
+        }
+        if (wf) url += `&worker=eq.${encodeURIComponent(wf)}`;
+        if (mf) url += `&model=eq.${encodeURIComponent(mf)}`;
+
+        const list = document.getElementById('recordList');
         try {
-            const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
-            if (!res.ok) { list.innerHTML = '<div class="empty">加载失败</div>'; return }
-            const data = await res.json()
+            const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+            if (!res.ok) { list.innerHTML = '<div class="empty">加载失败</div>'; return; }
+            const data = await res.json();
             if (!data || data.length === 0) {
-                list.innerHTML = '<div class="empty">暂无记录</div>'
-                document.getElementById('totalProfit').innerText = '¥0'
-                updateFilters([])
-                return
+                list.innerHTML = '<div class="empty">暂无记录</div>';
+                document.getElementById('totalProfit').innerText = '¥0';
+                updateFilters([]);
+                return;
             }
 
-            let total = 0
-            list.innerHTML = ''
+            let total = 0;
+            list.innerHTML = '';
             data.forEach(item => {
-                const sent = Number(item.sent_qty) || 0
-                const returned = Number(item.returned_qty) || 0
-                const unpaid = sent - returned
-                const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0)
-                total += profit
-                const profitColor = profit >= 0 ? 'var(--green)' : 'var(--red)'
+                const sent = Number(item.sent_qty) || 0;
+                const returned = Number(item.returned_qty) || 0;
+                const unpaid = sent - returned;
+                const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0);
+                total += profit;
+                const profitColor = profit >= 0 ? 'var(--green)' : 'var(--red)';
 
-                const card = document.createElement('div')
-                card.className = 'record-card'
+                const card = document.createElement('div');
+                card.className = 'record-card';
                 card.innerHTML = `
                     <div class="record-top">
                         <div><strong>${item.date}</strong></div>
@@ -330,79 +387,154 @@
                             <button class="del-btn" onclick="deleteRecord('${item.id}')">删除</button>
                         </div>
                     </div>
-                `
+                `;
+                // 绑定收回事件
+                const returnBtn = card.querySelector(`#return-${item.id}`);
+                returnBtn.addEventListener('click', async () => {
+                    const addQty = prompt('请输入本次追加收回的数量', '0');
+                    if (!addQty || isNaN(addQty) || Number(addQty) <= 0) {
+                        alert('请输入大于 0 的数字'); return;
+                    }
+                    const newReturned = returned + Number(addQty);
+                    try {
+                        await patchRecord(item.id, { returned_qty: newReturned });
+                    } catch (e) { alert('更新失败：' + e.message); }
+                });
+                list.appendChild(card);
+            });
 
-                // 直接绑定收回事件
-                const returnBtn = card.querySelector(`#return-${item.id}`)
-                returnBtn.addEventListener('click', () => {
-                    quickEdit('本次追加收回数量', 0, async (addVal) => {
-                        if (addVal <= 0) {
-                            alert('请输入大于0的数量')
-                            return
-                        }
-                        const newReturned = returned + addVal
-                        try {
-                            await patchRecord(item.id, { returned_qty: newReturned })
-                        } catch (e) {
-                            alert('更新失败：' + e.message)
-                        }
-                    })
-                })
-
-                list.appendChild(card)
-            })
-
-            const tp = document.getElementById('totalProfit')
-            tp.innerText = '¥' + total.toFixed(2)
-            tp.style.color = total >= 0 ? 'var(--green)' : 'var(--red)'
-            updateFilters(data)
-        } catch (e) { list.innerHTML = '<div class="empty">网络错误，请检查连接</div>' }
+            document.getElementById('totalProfit').innerText = '¥' + total.toFixed(2);
+            document.getElementById('totalProfit').style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
+            updateFilters(data);
+        } catch (e) { list.innerHTML = '<div class="empty">网络错误，请检查连接</div>'; }
     }
 
     function escapeHtml(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // 通用 PATCH
     async function patchRecord(id, body) {
         const res = await fetch(`${BASE}?id=eq.${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}` },
             body: JSON.stringify(body)
-        })
-        if (!res.ok) { const err = await res.json(); throw new Error(err.message) }
-        showToast('✅ 已更新')
-        loadData()
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+        showToast('✅ 已更新');
+        loadData();
     }
 
-    // 编辑备注
     async function editNote(id, currentNote) {
-        const newNote = prompt('修改备注', currentNote || '')
-        if (newNote === null) return
-        try {
-            await patchRecord(id, { note: newNote.trim() || null })
-        } catch (e) { alert('修改失败：' + e.message) }
+        const newNote = prompt('修改备注', currentNote || '');
+        if (newNote === null) return;
+        try { await patchRecord(id, { note: newNote.trim() || null }); } catch (e) { alert('修改失败：' + e.message); }
     }
 
-    // 删除
     async function deleteRecord(id) {
-        if (!confirm('确定删除？')) return
-        const res = await fetch(`${BASE}?id=eq.${id}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
-        if (!res.ok) { alert('删除失败'); return }
-        showToast('🗑️ 已删除')
-        loadData()
+        if (!confirm('确定删除？')) return;
+        const res = await fetch(`${BASE}?id=eq.${id}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+        if (!res.ok) { alert('删除失败'); return; }
+        showToast('🗑️ 已删除');
+        loadData();
     }
 
     function updateFilters(data) {
-        const ws = document.getElementById('workerFilter')
-        const ms = document.getElementById('modelFilter')
-        const workers = [...new Set(data.map(i => i.worker).filter(Boolean))]
-        const models = [...new Set(data.map(i => i.model).filter(Boolean))]
-        const currW = ws.value, currM = ms.value
-        ws.innerHTML = '<option value="">所有工人</option>'
-        ms.innerHTML = '<option value="">所有型号</option>'
-        workers.forEach(w => ws.innerHTML += `<option ${w===currW?'selected':''}>${w}</option>`)
-        models.forEach(m => ms.innerHTML += `<option ${m===currM?'selected':''}>${m}</option>`)
+        const ws = document.getElementById('workerFilter');
+        const ms = document.getElementById('modelFilter');
+        const workers = [...new Set(data.map(i => i.worker).filter(Boolean))];
+        const models = [...new Set(data.map(i => i.model).filter(Boolean))];
+        ws.innerHTML = '<option value="">所有工人</option>';
+        ms.innerHTML = '<option value="">所有型号</option>';
+        workers.forEach(w => ws.innerHTML += `<option ${w===ws.value?'selected':''}>${w}</option>`);
+        models.forEach(m => ms.innerHTML += `<option ${m===ms.value?'selected':''}>${m}</option>`);
+    }
+
+    // ========== 数据看板 ==========
+    async function openDashboard() {
+        // 获取所有数据（不分月份）
+        const res = await fetch(`${BASE}?select=*&order=date.asc`, {
+            headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }
+        });
+        if (!res.ok) { alert('获取数据失败'); return; }
+        const allData = await res.json();
+
+        const now = new Date();
+        const getMonday = (d) => { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.setDate(diff)); };
+        const weekStart = getMonday(new Date(now)).toISOString().split('T')[0];
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+        const yearStart = `${now.getFullYear()}-01-01`;
+
+        function calcStats(data) {
+            let sentTotal = 0, returnedTotal = 0, profitTotal = 0;
+            data.forEach(item => {
+                const sent = Number(item.sent_qty) || 0;
+                const returned = Number(item.returned_qty) || 0;
+                const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0);
+                sentTotal += sent;
+                returnedTotal += returned;
+                profitTotal += profit;
+            });
+            return { sentTotal, returnedTotal, profitTotal };
+        }
+
+        const weekData = allData.filter(item => item.date >= weekStart);
+        const monthData = allData.filter(item => item.date >= monthStart);
+        const yearData = allData.filter(item => item.date >= yearStart);
+
+        const weekStats = calcStats(weekData);
+        const monthStats = calcStats(monthData);
+        const yearStats = calcStats(yearData);
+
+        // 按工人汇总（本月）
+        const workerStats = {};
+        monthData.forEach(item => {
+            const w = item.worker || '未知';
+            if (!workerStats[w]) workerStats[w] = { sent:0, returned:0, profit:0 };
+            workerStats[w].sent += Number(item.sent_qty)||0;
+            workerStats[w].returned += Number(item.returned_qty)||0;
+            workerStats[w].profit += (Number(item.returned_qty)*item.buy_price - Number(item.returned_qty)*item.pay_price - (item.other_cost||0));
+        });
+
+        // 构建弹窗
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        let workerRows = '';
+        for (const [name, s] of Object.entries(workerStats)) {
+            workerRows += `
+                <div class="stat-row">
+                    <span>👤 ${name}</span>
+                    <span>发${s.sent} 收${s.returned}</span>
+                    <span class="stat-value">¥${s.profit.toFixed(2)}</span>
+                </div>
+            `;
+        }
+        modal.innerHTML = `
+            <div class="modal-box">
+                <h3>📊 数据看板</h3>
+                <div style="margin-bottom:20px;">
+                    <strong>本周</strong>（${weekStart} ~ ）
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${weekStats.sentTotal}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${weekStats.returnedTotal}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${weekStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${weekStats.profitTotal.toFixed(2)}</span></div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <strong>本月</strong>
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${monthStats.sentTotal}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${monthStats.returnedTotal}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${monthStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${monthStats.profitTotal.toFixed(2)}</span></div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <strong>今年</strong>
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${yearStats.sentTotal}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${yearStats.returnedTotal}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${yearStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${yearStats.profitTotal.toFixed(2)}</span></div>
+                </div>
+                ${workerRows ? `<div><strong>本月工人概览</strong>${workerRows}</div>` : '<div>本月暂无工人数据</div>'}
+                <button onclick="this.closest('.modal-overlay').remove()" style="margin-top:16px;">关闭</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     }
 </script>
 </body>
