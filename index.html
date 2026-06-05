@@ -25,8 +25,6 @@
         }
         .container { max-width: 700px; margin: 0 auto; }
         h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 20px; }
-
-        /* 顶部工具栏 */
         .toolbar {
             display: flex; gap: 10px; align-items: center; justify-content: center;
             margin-bottom: 16px; flex-wrap: wrap;
@@ -41,11 +39,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             cursor: pointer;
         }
-        .toolbar button {
-            background: var(--blue);
-            color: white;
-        }
-
+        .toolbar button { background: var(--blue); color: white; }
         .card {
             background: var(--card);
             border-radius: 16px;
@@ -65,11 +59,7 @@
             outline: none;
             font-family: inherit;
         }
-        textarea {
-            flex: 1 1 100%;
-            min-height: 70px;
-            resize: vertical;
-        }
+        textarea { flex: 1 1 100%; min-height: 70px; resize: vertical; }
         input::placeholder, textarea::placeholder { color: var(--gray4); }
         input:focus, select:focus, textarea:focus {
             background: #E8E8ED;
@@ -91,7 +81,6 @@
         .profit { display: flex; justify-content: space-between; align-items: baseline; }
         .profit span:first-child { font-size: 17px; font-weight: 500; }
         .profit span:last-child { font-size: 32px; font-weight: 700; color: var(--green); }
-
         .record-card {
             background: var(--card);
             border-radius: 14px;
@@ -132,8 +121,6 @@
         }
         .return-btn { background: rgba(0,122,255,0.1); color: var(--blue); }
         .del-btn { background: rgba(255,59,48,0.1); color: var(--red); }
-
-        /* Toast */
         .toast {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
             background: #333; color: white; padding: 12px 24px; border-radius: 14px;
@@ -141,8 +128,19 @@
             pointer-events: none;
         }
         .toast.show { opacity: 1; }
-
-        /* 数据看板弹窗 */
+        .quick-edit-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); display: flex; align-items: center;
+            justify-content: center; z-index: 1000;
+        }
+        .quick-edit-box {
+            background: white; border-radius: 16px; padding: 24px;
+            width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .quick-edit-box input {
+            width: 100%; padding: 12px; border-radius: 12px;
+            background: var(--gray1); border: none; font-size: 16px; margin-bottom: 16px;
+        }
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.4); display: flex; align-items: center;
@@ -160,7 +158,6 @@
         }
         .stat-row:last-child { border-bottom: none; }
         .stat-value { font-weight: 600; }
-
         .empty { text-align: center; color: var(--gray4); padding: 30px; }
     </style>
 </head>
@@ -169,7 +166,7 @@
     <h1>📋 代加工记账管理</h1>
     <div class="toast" id="toast"></div>
 
-    <!-- 月份选择 + 看板按钮 -->
+    <!-- 工具栏：月份选择 + 看板按钮 -->
     <div class="toolbar">
         <select id="monthFilter" onchange="loadData()">
             <option value="">所有月份</option>
@@ -202,7 +199,7 @@
         <button onclick="addRecord()">添加记录</button>
     </div>
 
-    <!-- 利润总览（当前月份） -->
+    <!-- 利润总览 -->
     <div class="card">
         <div class="profit">
             <span>总利润（当前筛选范围）</span>
@@ -226,6 +223,7 @@
 </div>
 
 <script>
+    // ==================== 配置 ====================
     const BASE = "https://lewyizyxrwyusggvavyf.supabase.co/rest/v1/records"
     const KEY  = "sb_publishable_mxl0MC99IxQOK_kLOP2IWg_symDykud"
 
@@ -257,7 +255,7 @@
         setTimeout(() => t.classList.remove('show'), 2000);
     }
 
-    // 快速编辑弹窗（发/收数量）
+    // 快速编辑弹窗（用于修改发出/收回数量）
     function quickEdit(title, currentVal, callback) {
         const exist = document.querySelector('.quick-edit-overlay');
         if (exist) exist.remove();
@@ -287,10 +285,10 @@
     // 获取当前选中的月份范围
     function getMonthRange() {
         const monthVal = document.getElementById('monthFilter').value;
-        if (!monthVal) return null; // 所有月份
+        if (!monthVal) return null;
         const [y, m] = monthVal.split('-').map(Number);
         const start = `${y}-${String(m).padStart(2,'0')}-01`;
-        const endDate = new Date(y, m, 0); // 下个月第0天即本月最后一天
+        const endDate = new Date(y, m, 0);
         const end = `${y}-${String(m).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
         return { start, end };
     }
@@ -333,11 +331,7 @@
         const mf = document.getElementById('modelFilter').value;
         const monthRange = getMonthRange();
         let url = `${BASE}?select=*&order=id.desc`;
-
-        // 日期过滤
-        if (monthRange) {
-            url += `&date=gte.${monthRange.start}&date=lte.${monthRange.end}`;
-        }
+        if (monthRange) url += `&date=gte.${monthRange.start}&date=lte.${monthRange.end}`;
         if (wf) url += `&worker=eq.${encodeURIComponent(wf)}`;
         if (mf) url += `&model=eq.${encodeURIComponent(mf)}`;
 
@@ -372,8 +366,8 @@
                         <div>👤 ${item.worker}</div>
                     </div>
                     <div class="record-mid">
-                        <div class="editable" onclick="quickEdit('发出数量', ${sent}, (v)=>patchRecord('${item.id}',{sent_qty:v}))">📤 发 ${sent}</div>
-                        <div class="editable" onclick="quickEdit('收回数量', ${returned}, (v)=>patchRecord('${item.id}',{returned_qty:v}))">📥 收 ${returned}</div>
+                        <div class="editable" onclick="quickEdit('发出数量', ${sent}, (v)=>patchRecord('${item.id}',{sent_qty:v}))">发出 ${sent}</div>
+                        <div class="editable" onclick="quickEdit('收回数量', ${returned}, (v)=>patchRecord('${item.id}',{returned_qty:v}))">收回 ${returned}</div>
                         <div style="color:${unpaid>0?'var(--yellow)':'var(--green)'}; font-weight:600;">
                             未收 ${unpaid}
                             ${unpaid > 0 ? '<span class="badge badge-yellow">进行中</span>' : '<span class="badge badge-green">已收完</span>'}
@@ -388,7 +382,6 @@
                         </div>
                     </div>
                 `;
-                // 绑定收回事件
                 const returnBtn = card.querySelector(`#return-${item.id}`);
                 returnBtn.addEventListener('click', async () => {
                     const addQty = prompt('请输入本次追加收回的数量', '0');
@@ -449,9 +442,8 @@
         models.forEach(m => ms.innerHTML += `<option ${m===ms.value?'selected':''}>${m}</option>`);
     }
 
-    // ========== 数据看板 ==========
+    // ==================== 数据看板 ====================
     async function openDashboard() {
-        // 获取所有数据（不分月份）
         const res = await fetch(`${BASE}?select=*&order=date.asc`, {
             headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }
         });
@@ -459,77 +451,76 @@
         const allData = await res.json();
 
         const now = new Date();
-        const getMonday = (d) => { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.setDate(diff)); };
+        const getMonday = d => { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.setDate(diff)); };
         const weekStart = getMonday(new Date(now)).toISOString().split('T')[0];
         const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
         const yearStart = `${now.getFullYear()}-01-01`;
 
         function calcStats(data) {
-            let sentTotal = 0, returnedTotal = 0, profitTotal = 0;
+            let sent = 0, returned = 0, profit = 0;
             data.forEach(item => {
-                const sent = Number(item.sent_qty) || 0;
-                const returned = Number(item.returned_qty) || 0;
-                const profit = (returned * item.buy_price) - (returned * item.pay_price) - (item.other_cost || 0);
-                sentTotal += sent;
-                returnedTotal += returned;
-                profitTotal += profit;
+                const s = Number(item.sent_qty) || 0;
+                const r = Number(item.returned_qty) || 0;
+                const p = (r * item.buy_price) - (r * item.pay_price) - (item.other_cost || 0);
+                sent += s;
+                returned += r;
+                profit += p;
             });
-            return { sentTotal, returnedTotal, profitTotal };
+            return { sent, returned, profit };
         }
 
-        const weekData = allData.filter(item => item.date >= weekStart);
-        const monthData = allData.filter(item => item.date >= monthStart);
-        const yearData = allData.filter(item => item.date >= yearStart);
+        const weekStats = calcStats(allData.filter(i => i.date >= weekStart));
+        const monthStats = calcStats(allData.filter(i => i.date >= monthStart));
+        const yearStats = calcStats(allData.filter(i => i.date >= yearStart));
 
-        const weekStats = calcStats(weekData);
-        const monthStats = calcStats(monthData);
-        const yearStats = calcStats(yearData);
-
-        // 按工人汇总（本月）
-        const workerStats = {};
+        // 本月工人汇总
+        const monthData = allData.filter(i => i.date >= monthStart);
+        const workerMap = {};
         monthData.forEach(item => {
             const w = item.worker || '未知';
-            if (!workerStats[w]) workerStats[w] = { sent:0, returned:0, profit:0 };
-            workerStats[w].sent += Number(item.sent_qty)||0;
-            workerStats[w].returned += Number(item.returned_qty)||0;
-            workerStats[w].profit += (Number(item.returned_qty)*item.buy_price - Number(item.returned_qty)*item.pay_price - (item.other_cost||0));
+            if (!workerMap[w]) workerMap[w] = { sent:0, returned:0, profit:0 };
+            workerMap[w].sent += Number(item.sent_qty)||0;
+            workerMap[w].returned += Number(item.returned_qty)||0;
+            workerMap[w].profit += (Number(item.returned_qty)*item.buy_price - Number(item.returned_qty)*item.pay_price - (item.other_cost||0));
         });
-
-        // 构建弹窗
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
         let workerRows = '';
-        for (const [name, s] of Object.entries(workerStats)) {
+        Object.entries(workerMap).forEach(([name, s]) => {
             workerRows += `
                 <div class="stat-row">
                     <span>👤 ${name}</span>
                     <span>发${s.sent} 收${s.returned}</span>
-                    <span class="stat-value">¥${s.profit.toFixed(2)}</span>
+                    <span class="stat-value" style="color:${s.profit>=0?'var(--green)':'var(--red)'}">¥${s.profit.toFixed(2)}</span>
                 </div>
             `;
-        }
+        });
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
         modal.innerHTML = `
             <div class="modal-box">
                 <h3>数据看板</h3>
                 <div style="margin-bottom:20px;">
-                    <strong>本周</strong>（${weekStart} ~ ）
-                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${weekStats.sentTotal}</span></div>
-                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${weekStats.returnedTotal}</span></div>
-                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${weekStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${weekStats.profitTotal.toFixed(2)}</span></div>
+                    <strong>本周</strong>（${weekStart} 起）
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${weekStats.sent}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${weekStats.returned}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${weekStats.profit>=0?'var(--green)':'var(--red)'}">¥${weekStats.profit.toFixed(2)}</span></div>
                 </div>
                 <div style="margin-bottom:20px;">
                     <strong>本月</strong>
-                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${monthStats.sentTotal}</span></div>
-                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${monthStats.returnedTotal}</span></div>
-                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${monthStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${monthStats.profitTotal.toFixed(2)}</span></div>
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${monthStats.sent}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${monthStats.returned}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${monthStats.profit>=0?'var(--green)':'var(--red)'}">¥${monthStats.profit.toFixed(2)}</span></div>
                 </div>
                 <div style="margin-bottom:20px;">
                     <strong>今年</strong>
-                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${yearStats.sentTotal}</span></div>
-                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${yearStats.returnedTotal}</span></div>
-                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${yearStats.profitTotal>=0?'var(--green)':'var(--red)'}">¥${yearStats.profitTotal.toFixed(2)}</span></div>
+                    <div class="stat-row"><span>发出总量</span><span class="stat-value">${yearStats.sent}</span></div>
+                    <div class="stat-row"><span>收回总量</span><span class="stat-value">${yearStats.returned}</span></div>
+                    <div class="stat-row"><span>利润</span><span class="stat-value" style="color:${yearStats.profit>=0?'var(--green)':'var(--red)'}">¥${yearStats.profit.toFixed(2)}</span></div>
                 </div>
-                ${workerRows ? `<div><strong>本月工人概览</strong>${workerRows}</div>` : '<div>本月暂无工人数据</div>'}
+                <div>
+                    <strong>本月工人概览</strong>
+                    ${workerRows || '<div class="stat-row">暂无数据</div>'}
+                </div>
                 <button onclick="this.closest('.modal-overlay').remove()" style="margin-top:16px;">关闭</button>
             </div>
         `;
